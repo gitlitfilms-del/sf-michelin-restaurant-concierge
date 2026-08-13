@@ -2,6 +2,8 @@ import os
 import re
 import math
 import logging
+import urllib.request
+import json
 from typing import List
 
 logger = logging.getLogger("agentbook.embeddings")
@@ -18,13 +20,41 @@ COMMON_VOCAB = [
 
 def generate_embedding(text: str, dimension: int = 768) -> List[float]:
     """
-    Generates a vector embedding for text using Google Gemini / Vertex AI,
-    or falls back to a term-frequency + hashed feature vector for offline testing.
+    Generates vector embedding for text using MongoDB AI / Voyage AI API (voyage-4-large),
+    or Google Gemini text-embedding-004, or falls back to an offline vocabulary vector generator.
     """
     if not text:
         text = "empty"
-    
-    # Try using google-genai if API key is present
+
+    # 1. Try MongoDB AI / Voyage AI API endpoint (voyage-4-large)
+    voyage_key = os.environ.get("VOYAGE_API_KEY") or os.environ.get("MONGODB_AI_API_KEY")
+    if voyage_key:
+        try:
+            url = "https://ai.mongodb.com/v1/embeddings"
+            payload = json.dumps({
+                "input": [text],
+                "model": "voyage-4-large"
+            }).encode("utf-8")
+            
+            req = urllib.request.Request(
+                url,
+                data=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {voyage_key}"
+                },
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=5) as response:
+                res_data = json.loads(response.read().decode("utf-8"))
+                if "data" in res_data and len(res_data["data"]) > 0:
+                    embedding = res_data["data"][0].get("embedding", [])
+                    if embedding:
+                        return embedding
+        except Exception as e:
+            logger.warning(f"MongoDB AI / Voyage API embedding failed: {e}. Trying Gemini API...")
+
+    # 2. Try Google Gemini API (text-embedding-004)
     api_key = os.environ.get("GEMINI_API_KEY")
     if api_key:
         try:
@@ -37,26 +67,23 @@ def generate_embedding(text: str, dimension: int = 768) -> List[float]:
             if result.embedding and result.embedding.values:
                 return result.embedding.values
         except Exception as e:
-            logger.warning(f"Gemini API embedding generation failed: {e}. Using offline vector generator.")
+            logger.warning(f"Gemini API embedding failed: {e}. Using offline fallback generator.")
 
-    # Offline fallback embedding based on vocabulary term weights + character hash
+    # 3. Offline vocabulary + character hash fallback
     tokens = set(re.findall(r'\w+', text.lower()))
     vector = [0.0] * dimension
     
-    # Map common vocabulary terms to distinct vector bins
     for i, vocab in enumerate(COMMON_VOCAB):
         if vocab in tokens:
             bin_idx = (i * 17) % dimension
             vector[bin_idx] += 2.0
             
-    # Hash remaining tokens across vector space
     import hashlib
     for token in tokens:
         token_hash = int(hashlib.sha256(token.encode('utf-8')).hexdigest(), 16)
         bin_idx = token_hash % dimension
         vector[bin_idx] += 1.0
 
-    # Normalize vector to unit length
     magnitude = math.sqrt(sum(v * v for v in vector))
     if magnitude > 0:
         vector = [v / magnitude for v in vector]

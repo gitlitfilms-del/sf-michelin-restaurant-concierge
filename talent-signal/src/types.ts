@@ -2,6 +2,7 @@ export type NodeType =
   | "dataSource"
   | "vectorSearch"
   | "atlasNativeEmbedding"
+  | "mongoDbAiEmbedding"
   | "filter"
   | "rerank"
   | "llmAgent"
@@ -13,6 +14,7 @@ export interface NodeConfig {
   field?: string;
   path?: string;
   queryText?: string;
+  embeddingEndpoint?: string;
   model?: string;
   limit?: number;
   topK?: number;
@@ -49,6 +51,10 @@ export interface CompiledStage {
   stageType: string;
   stageName: string;
   mongoStage?: Record<string, any>;
+  embeddingConfig?: {
+    endpoint: string;
+    model: string;
+  };
   rerankConfig?: {
     provider: string;
     model: string;
@@ -70,5 +76,5 @@ export interface CompiledPlan {
   rerankStages: CompiledStage[];
   llmStages: CompiledStage[];
   executionOrder: string[];
-  atlasEmbeddingMode: "native_atlas" | "external_vector";
+  atlasEmbeddingMode: "native_atlas" | "mongodb_ai_voyage" | "external_vector";
 }

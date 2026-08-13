@@ -11,13 +11,11 @@ export function validate(graph: WorkflowGraph): string[] {
 
   const nodeIds = new Set(graph.nodes.map((n) => n.id));
 
-  // Check for orphan edges
   for (const edge of graph.edges || []) {
     if (!nodeIds.has(edge.source)) errors.push(`Edge ${edge.id} references missing source node ${edge.source}.`);
     if (!nodeIds.has(edge.target)) errors.push(`Edge ${edge.id} references missing target node ${edge.target}.`);
   }
 
-  // Validate node configs
   for (const node of graph.nodes) {
     if (node.type === "dataSource" && !node.config.collection) {
       errors.push(`Node ${node.id} (dataSource) requires 'collection' in config.`);
@@ -27,6 +25,9 @@ export function validate(graph: WorkflowGraph): string[] {
     }
     if (node.type === "atlasNativeEmbedding" && !node.config.index) {
       errors.push(`Node ${node.id} (atlasNativeEmbedding) requires 'index' in config.`);
+    }
+    if (node.type === "mongoDbAiEmbedding" && !node.config.index) {
+      errors.push(`Node ${node.id} (mongoDbAiEmbedding) requires 'index' in config.`);
     }
     if (node.type === "filter" && (!node.config.field || !node.config.op)) {
       errors.push(`Node ${node.id} (filter) requires 'field' and 'op' in config.`);
@@ -42,9 +43,6 @@ export function validate(graph: WorkflowGraph): string[] {
   return errors;
 }
 
-/**
- * Topologically sorts workflow nodes based on edge connections.
- */
 function getTopologicalOrder(graph: WorkflowGraph): WorkflowNode[] {
   const inDegree: Record<string, number> = {};
   const adj: Record<string, string[]> = {};
@@ -85,21 +83,32 @@ function getTopologicalOrder(graph: WorkflowGraph): WorkflowNode[] {
   return sortedNodes.length === graph.nodes.length ? sortedNodes : graph.nodes;
 }
 
-/**
- * Compiles a visual workflow graph into an executable MongoDB Atlas aggregation pipeline & LLM execution plan.
- */
 export function compile(graph: WorkflowGraph): CompiledPlan {
   const sortedNodes = getTopologicalOrder(graph);
   const pipeline: Record<string, any>[] = [];
   const rerankStages: CompiledStage[] = [];
   const llmStages: CompiledStage[] = [];
   const executionOrder: string[] = [];
-  let atlasEmbeddingMode: "native_atlas" | "external_vector" = "external_vector";
+  let atlasEmbeddingMode: "native_atlas" | "mongodb_ai_voyage" | "external_vector" = "external_vector";
 
   for (const node of sortedNodes) {
     executionOrder.push(`${node.id} (${node.type})`);
 
-    if (node.type === "atlasNativeEmbedding") {
+    if (node.type === "mongoDbAiEmbedding") {
+      atlasEmbeddingMode = "mongodb_ai_voyage";
+      const stage = {
+        $vectorSearch: {
+          index: node.config.index,
+          path: node.config.field || "review_embedding",
+          queryText: node.config.queryText || "{{user_prompt}}",
+          numCandidates: (node.config.limit || 20) * 5,
+          limit: node.config.limit || 20,
+          embeddingEndpoint: "https://ai.mongodb.com/v1/embeddings",
+          model: "voyage-4-large"
+        },
+      };
+      pipeline.push(stage);
+    } else if (node.type === "atlasNativeEmbedding") {
       atlasEmbeddingMode = "native_atlas";
       const stage = {
         $vectorSearch: {
