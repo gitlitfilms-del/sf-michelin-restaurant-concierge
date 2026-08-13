@@ -1,8 +1,18 @@
-# ⚡ Talent Signal — Visual Workflow Compiler & Agent CLI System
+# ⚡ Talent Signal — Visual Workflow Topology Compiler vs n8n
 
-> **Compiler Engine for MongoDB Atlas Vector Search Pipelines & Multi-Provider LLM Agents**
+> **Structural Query Compilation Engine for MongoDB Atlas Vector Search Pipelines & Multi-Provider LLM Agents**
 
-Demonstrates compiling visual node graphs into executable MongoDB Atlas aggregation pipelines, node rewiring (`$match` pre-filter vs post-filter optimization), and zero-code provider swapping.
+---
+
+## 💡 Architectural Comparison: n8n vs Talent Signal Compiler
+
+| Feature | n8n MongoDB Nodes | Talent Signal Topology Compiler |
+| :--- | :--- | :--- |
+| **Execution Model** | Static, step-by-step sequential node execution. | Abstract Syntax Tree (AST) graph compiler. |
+| **Canvas Topology Impact** | Moving nodes changes the sequence of separate API calls. | Moving nodes **rewrites the generated MongoDB aggregation query structure itself**. |
+| **Pre-Filter vs Post-Filter** | Requires manual configuration inside individual node parameters. | Moving a `Filter` node before `VectorSearch` on canvas automatically compiles a pre-filter `$match` stage before `$vectorSearch`. |
+| **LLM Provider Swapping** | Hardcoded node instances or manual credential switching. | Zero-code config swapping (`Anthropic` ➔ `OpenAI` ➔ `Gemini`) with instant AST validation. |
+| **Query Output** | Isolated individual operations (`Find`, `Aggregate`). | Single unified MongoDB Atlas Aggregation Pipeline + LLM Execution Plan. |
 
 ---
 
@@ -25,5 +35,5 @@ python3 -m unittest discover -s tests
 
 ### TypeScript Demo Execution
 ```bash
-npx ts-node src/example.ts
+npx tsx src/example.ts
 ```
