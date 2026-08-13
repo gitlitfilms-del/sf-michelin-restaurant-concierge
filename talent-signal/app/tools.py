@@ -1,82 +1,33 @@
 """
-ADK Function Tools for Talent Signal Visual Workflow Compiler
-Exposes graph compilation, validation, node rewiring, and provider swapping tools to Agents CLI.
+TalentSignal ADK Function Tools — Swarm Management, Topology Compilation, & Session Memory
 """
 
 from typing import Dict, Any, List
-from app.compiler import compile_workflow_graph, validate_workflow_graph
+from app.personas import TALENTSIGNAL_SWARM_PERSONAS
+from app.node_agents import TALENTSIGNAL_NODE_AGENTS
+from app.compiler import compile_workflow_graph
+from app.atlas_client import TalentSignalAtlasClient
 
-# Default sample workflow graph matching example.ts
-DEMO_WORKFLOW_GRAPH = {
-    "id": "wf_demo",
-    "name": "Talent Signal — Demo Pipeline",
-    "nodes": [
-        {"id": "n1", "type": "dataSource", "position": {"x": 0, "y": 0}, "config": {"collection": "employees"}},
-        {"id": "n2", "type": "vectorSearch", "position": {"x": 250, "y": 0}, "config": {"index": "review_vector_index", "field": "review_embedding", "limit": 20}},
-        {"id": "n3", "type": "filter", "position": {"x": 500, "y": 0}, "config": {"field": "department", "op": "eq", "value": "Platform Engineering"}},
-        {"id": "n4", "type": "llmAgent", "position": {"x": 750, "y": 0}, "config": {"provider": "anthropic", "model": "claude-sonnet-5", "promptTemplate": "Summarize why these employees stand out:\n{{documents}}", "outputField": "summary"}},
-        {"id": "n5", "type": "output", "position": {"x": 1000, "y": 0}, "config": {}}
-    ],
-    "edges": [
-        {"id": "e1", "source": "n1", "target": "n2"},
-        {"id": "e2", "source": "n2", "target": "n3"},
-        {"id": "e3", "source": "n3", "target": "n4"},
-        {"id": "e4", "source": "n4", "target": "n5"}
-    ]
-}
+atlas = TalentSignalAtlasClient()
 
-def compile_graph(graph: Dict[str, Any] = None) -> Dict[str, Any]:
-    """Compiles a visual workflow graph into a MongoDB Atlas pipeline & LLM execution plan."""
-    target_graph = graph or DEMO_WORKFLOW_GRAPH
-    return compile_workflow_graph(target_graph)
+def list_talentsignal_swarm_personas() -> List[Dict[str, Any]]:
+    """Lists all 8 specialized TalentSignal Agent Swarm personas."""
+    return TALENTSIGNAL_SWARM_PERSONAS
 
-def validate_graph(graph: Dict[str, Any] = None) -> Dict[str, Any]:
-    """Validates a visual workflow graph structure for correctness."""
-    target_graph = graph or DEMO_WORKFLOW_GRAPH
-    errors = validate_workflow_graph(target_graph)
-    return {
-        "valid": len(errors) == 0,
-        "errors": errors
-    }
+def list_talentsignal_canvas_node_agents() -> List[Dict[str, Any]]:
+    """Lists all modular TalentSignal canvas node agents."""
+    return TALENTSIGNAL_NODE_AGENTS
 
-def rewire_filter_before_vector_search(graph: Dict[str, Any] = None) -> Dict[str, Any]:
-    """
-    Simulates user dragging the Filter node BEFORE the Vector Search node on the visual canvas.
-    Changes edge topology (n1 -> n3 -> n2 -> n4 -> n5) and compiles the pre-filter Atlas pipeline.
-    """
-    base = graph or DEMO_WORKFLOW_GRAPH
-    rewired_graph = dict(base)
-    rewired_graph["edges"] = [
-        {"id": "e1", "source": "n1", "target": "n3"},  # dataSource -> filter
-        {"id": "e2", "source": "n3", "target": "n2"},  # filter -> vectorSearch
-        {"id": "e3", "source": "n2", "target": "n4"},
-        {"id": "e4", "source": "n4", "target": "n5"}
-    ]
-    compiled = compile_workflow_graph(rewired_graph)
-    return {
-        "rewired_scenario": "Filter node moved before Vector Search node (Pre-filter query)",
-        "compiled_plan": compiled
-    }
+def compile_talentsignal_topology(workflow_graph: Dict[str, Any]) -> Dict[str, Any]:
+    """Compiles a visual TalentSignal topology graph into an executable MongoDB Atlas vector pipeline."""
+    return compile_workflow_graph(workflow_graph)
 
-def swap_llm_provider(node_id: str = "n4", provider: str = "openai", model: str = "gpt-4o", graph: Dict[str, Any] = None) -> Dict[str, Any]:
-    """
-    Swaps an LLM Agent node's provider and model (e.g. anthropic -> openai / gemini) with zero code changes.
-    """
-    base = graph or DEMO_WORKFLOW_GRAPH
-    swapped_graph = dict(base)
-    updated_nodes = []
-    for node in base["nodes"]:
-        if node["id"] == node_id:
-            new_node = dict(node)
-            new_node["config"] = dict(node["config"])
-            new_node["config"]["provider"] = provider
-            new_node["config"]["model"] = model
-            updated_nodes.append(new_node)
-        else:
-            updated_nodes.append(node)
-    swapped_graph["nodes"] = updated_nodes
-    compiled = compile_workflow_graph(swapped_graph)
-    return {
-        "swapped_scenario": f"Swapped node {node_id} provider to {provider} ({model})",
-        "compiled_plan": compiled
-    }
+def record_talentsignal_session(session_id: str, role: str, message: str) -> Dict[str, Any]:
+    """Persists a conversation turn in TalentSignal MongoDB Chat Memory."""
+    doc = atlas.insert_chat_memory(session_id, role, message)
+    return {"status": "persisted", "record": doc}
+
+def fetch_talentsignal_session(session_id: str, limit: int = 10) -> Dict[str, Any]:
+    """Retrieves session chat history from TalentSignal MongoDB Chat Memory."""
+    history = atlas.get_chat_memory(session_id, limit)
+    return {"session_id": session_id, "count": len(history), "history": history}

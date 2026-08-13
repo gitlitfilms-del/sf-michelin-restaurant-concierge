@@ -1,7 +1,7 @@
 [project]
 name = "talent-signal"
-version = "0.1.0"
-description = "Talent Signal — Visual Workflow Graph Compiler for MongoDB Atlas Vector Search and Multi-Provider LLM Agents."
+version = "0.2.0"
+description = "TalentSignal — Visual Topology Compiler & Swarm Agent Network for MongoDB Atlas Vector Search."
 authors = [
     {name = "GitLit Films", email = "dev@gitlitfilms.com"},
 ]

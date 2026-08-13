@@ -1,3 +1,3 @@
 """
-Talent Signal Package
+TalentSignal Package
 """

@@ -1,7 +1,7 @@
 """
 Talent Signal Workflow Compiler (Python ADK Edition)
 Compiles visual node graphs into executable MongoDB Atlas aggregation pipelines and LLM Agent execution plans.
-Supports Atlas Native Embedding ($vectorSearch with queryText) and Voyage AI Rerank nodes.
+Supports MongoDB AI Voyage Embeddings (voyage-4-large), Atlas Native Embedding, and Voyage AI Rerank nodes.
 """
 
 from typing import List, Dict, Any
@@ -36,6 +36,8 @@ def validate_workflow_graph(graph: Dict[str, Any]) -> List[str]:
             errors.append(f"Node {node_id} (vectorSearch) requires 'index' and 'field' in config.")
         elif node_type == "atlasNativeEmbedding" and not config.get("index"):
             errors.append(f"Node {node_id} (atlasNativeEmbedding) requires 'index' in config.")
+        elif node_type == "mongoDbAiEmbedding" and not config.get("index"):
+            errors.append(f"Node {node_id} (mongoDbAiEmbedding) requires 'index' in config.")
         elif node_type == "filter" and (not config.get("field") or not config.get("op")):
             errors.append(f"Node {node_id} (filter) requires 'field' and 'op' in config.")
         elif node_type == "rerank" and (not config.get("provider") or not config.get("model")):
@@ -94,7 +96,21 @@ def compile_workflow_graph(graph: Dict[str, Any]) -> Dict[str, Any]:
         config = node.get("config", {})
         execution_order.append(f"{n_id} ({n_type})")
 
-        if n_type == "atlasNativeEmbedding":
+        if n_type == "mongoDbAiEmbedding":
+            atlas_embedding_mode = "mongodb_ai_voyage"
+            limit = config.get("limit", 20)
+            pipeline.append({
+                "$vectorSearch": {
+                    "index": config.get("index"),
+                    "path": config.get("field", "review_embedding"),
+                    "queryText": config.get("queryText", "{{user_prompt}}"),
+                    "numCandidates": limit * 5,
+                    "limit": limit,
+                    "embeddingEndpoint": config.get("embeddingEndpoint", "https://ai.mongodb.com/v1/embeddings"),
+                    "model": config.get("model", "voyage-4-large")
+                }
+            })
+        elif n_type == "atlasNativeEmbedding":
             atlas_embedding_mode = "native_atlas"
             limit = config.get("limit", 20)
             pipeline.append({
