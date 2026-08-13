@@ -2,11 +2,42 @@
 MongoAtlasVectorBeast — Modular Node Agents Library
 Each agent represents a standalone visual node block that can be instantiated, connected,
 and compiled into visual canvas workflows or n8n nodes.
+Includes Atlas Native Vector Search & Voyage AI Reranking Node Agents.
 """
 
 from typing import Dict, Any, List
 
 NODE_AGENTS_CATALOG: List[Dict[str, Any]] = [
+    {
+        "node_type": "AtlasNativeEmbeddingNodeAgent",
+        "node_id": "atlas-native-embedding-node",
+        "node_name": "Atlas Native Automated Embedding Node",
+        "category": "Atlas Native Vector AI",
+        "description": "Confirms MongoDB Atlas is natively handling vector embedding generation inside Atlas rather than invoking external APIs.",
+        "config_schema": {
+            "index": "review_vector_index",
+            "field": "review_embedding",
+            "queryText": "{{user_prompt}}",
+            "limit": 20,
+            "embeddingModel": "atlas-automated-vectorizer"
+        },
+        "inputs": ["queryText", "filterCondition"],
+        "outputs": ["atlas_embedded_documents"]
+    },
+    {
+        "node_type": "RerankNodeAgent",
+        "node_id": "rerank-node",
+        "node_name": "Voyage AI Rerank Node",
+        "category": "Search Re-scoring",
+        "description": "Sits after Vector Search and calls Voyage AI's rerank API (voyage-rerank-2) to re-score vector search candidate documents.",
+        "config_schema": {
+            "provider": "voyage",
+            "model": "voyage-rerank-2",
+            "topK": 5
+        },
+        "inputs": ["matched_documents", "query"],
+        "outputs": ["reranked_documents"]
+    },
     {
         "node_type": "VectorSearchNodeAgent",
         "node_id": "vector-search-node",
@@ -123,7 +154,6 @@ NODE_AGENTS_CATALOG: List[Dict[str, Any]] = [
 ]
 
 def get_node_agent_by_id(node_id: str) -> Dict[str, Any]:
-    """Retrieves a node agent spec by node_id."""
     for agent in NODE_AGENTS_CATALOG:
         if agent["node_id"] == node_id:
             return agent

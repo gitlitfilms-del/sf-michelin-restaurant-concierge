@@ -1,15 +1,25 @@
-export type NodeType = "dataSource" | "vectorSearch" | "filter" | "llmAgent" | "output";
+export type NodeType =
+  | "dataSource"
+  | "vectorSearch"
+  | "atlasNativeEmbedding"
+  | "filter"
+  | "rerank"
+  | "llmAgent"
+  | "output";
 
 export interface NodeConfig {
   collection?: string;
   index?: string;
   field?: string;
   path?: string;
+  queryText?: string;
+  model?: string;
   limit?: number;
+  topK?: number;
+  provider?: string;
+  apiKey?: string;
   op?: string;
   value?: any;
-  provider?: string;
-  model?: string;
   promptTemplate?: string;
   outputField?: string;
   [key: string]: any;
@@ -39,6 +49,11 @@ export interface CompiledStage {
   stageType: string;
   stageName: string;
   mongoStage?: Record<string, any>;
+  rerankConfig?: {
+    provider: string;
+    model: string;
+    topK: number;
+  };
   llmConfig?: {
     provider: string;
     model: string;
@@ -52,6 +67,8 @@ export interface CompiledPlan {
   workflowId: string;
   workflowName: string;
   pipeline: Record<string, any>[];
+  rerankStages: CompiledStage[];
   llmStages: CompiledStage[];
   executionOrder: string[];
+  atlasEmbeddingMode: "native_atlas" | "external_vector";
 }

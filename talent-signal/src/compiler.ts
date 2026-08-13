@@ -25,8 +25,14 @@ export function validate(graph: WorkflowGraph): string[] {
     if (node.type === "vectorSearch" && (!node.config.index || !node.config.field)) {
       errors.push(`Node ${node.id} (vectorSearch) requires 'index' and 'field' in config.`);
     }
+    if (node.type === "atlasNativeEmbedding" && !node.config.index) {
+      errors.push(`Node ${node.id} (atlasNativeEmbedding) requires 'index' in config.`);
+    }
     if (node.type === "filter" && (!node.config.field || !node.config.op)) {
       errors.push(`Node ${node.id} (filter) requires 'field' and 'op' in config.`);
+    }
+    if (node.type === "rerank" && (!node.config.provider || !node.config.model)) {
+      errors.push(`Node ${node.id} (rerank) requires 'provider' and 'model' in config.`);
     }
     if (node.type === "llmAgent" && (!node.config.provider || !node.config.model)) {
       errors.push(`Node ${node.id} (llmAgent) requires 'provider' and 'model' in config.`);
@@ -85,13 +91,28 @@ function getTopologicalOrder(graph: WorkflowGraph): WorkflowNode[] {
 export function compile(graph: WorkflowGraph): CompiledPlan {
   const sortedNodes = getTopologicalOrder(graph);
   const pipeline: Record<string, any>[] = [];
+  const rerankStages: CompiledStage[] = [];
   const llmStages: CompiledStage[] = [];
   const executionOrder: string[] = [];
+  let atlasEmbeddingMode: "native_atlas" | "external_vector" = "external_vector";
 
   for (const node of sortedNodes) {
     executionOrder.push(`${node.id} (${node.type})`);
 
-    if (node.type === "vectorSearch") {
+    if (node.type === "atlasNativeEmbedding") {
+      atlasEmbeddingMode = "native_atlas";
+      const stage = {
+        $vectorSearch: {
+          index: node.config.index,
+          path: node.config.field || "review_embedding",
+          queryText: node.config.queryText || "{{user_prompt}}",
+          numCandidates: (node.config.limit || 20) * 5,
+          limit: node.config.limit || 20,
+          embeddingModel: "atlas-automated-vectorizer"
+        },
+      };
+      pipeline.push(stage);
+    } else if (node.type === "vectorSearch") {
       const stage = {
         $vectorSearch: {
           index: node.config.index,
@@ -110,6 +131,22 @@ export function compile(graph: WorkflowGraph): CompiledPlan {
         },
       };
       pipeline.push(stage);
+    } else if (node.type === "rerank") {
+      rerankStages.push({
+        stageType: "rerank",
+        stageName: node.id,
+        rerankConfig: {
+          provider: node.config.provider || "voyage",
+          model: node.config.model || "voyage-rerank-2",
+          topK: node.config.topK || node.config.limit || 5
+        },
+        details: {
+          id: node.id,
+          provider: node.config.provider || "voyage",
+          model: node.config.model || "voyage-rerank-2",
+          targetField: "relevance_score"
+        }
+      });
     } else if (node.type === "llmAgent") {
       llmStages.push({
         stageType: "llmAgent",
@@ -133,7 +170,9 @@ export function compile(graph: WorkflowGraph): CompiledPlan {
     workflowId: graph.id,
     workflowName: graph.name,
     pipeline,
+    rerankStages,
     llmStages,
     executionOrder,
+    atlasEmbeddingMode
   };
 }

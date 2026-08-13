@@ -19,12 +19,13 @@ class TestVectorBeastNodeAgents(unittest.TestCase):
 
     def test_node_catalog_completeness(self):
         catalog = list_canvas_node_agents()
-        self.assertEqual(len(catalog), 8)
+        self.assertEqual(len(catalog), 10)
         node_types = [n["node_type"] for n in catalog]
+        self.assertIn("AtlasNativeEmbeddingNodeAgent", node_types)
+        self.assertIn("RerankNodeAgent", node_types)
         self.assertIn("VectorSearchNodeAgent", node_types)
         self.assertIn("FilterNodeAgent", node_types)
         self.assertIn("LLMAgentNodeAgent", node_types)
-        self.assertIn("MemoryNodeAgent", node_types)
 
     def test_pipeline_compilation_from_workflow_json(self):
         with open("workflows/vector_beast_pipeline.json") as f:
